@@ -147,6 +147,36 @@
             padding: 2px;
         }
 
+        .no-fill-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: #555;
+            font-size: 0.6rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .no-fill-btn:hover {
+            border-color: #555;
+            color: #666;
+        }
+
+        .no-fill-btn.active {
+            background: #2a2a2a;
+            border-color: #666;
+            color: #888;
+        }
+
+        .no-fill-btn svg {
+            width: 12px;
+            height: 12px;
+        }
+
         .checkbox-group {
             display: flex;
             align-items: center;
@@ -374,8 +404,17 @@
                 </select>
             </div>
             <div class="control-group">
-                <label>Canvas Size <span id="canvasSizeValue">1920px</span></label>
-                <input type="range" id="canvasSize" min="400" max="3840" step="100" value="1920">
+                <label>Canvas Preset</label>
+                <select id="canvasPreset">
+                    <option value="1920,1080">1920 × 1080 (16:9)</option>
+                    <option value="1080,1080">1080 × 1080 (1:1)</option>
+                    <option value="1080,1920">1080 × 1920 (9:16)</option>
+                    <option value="1200,630">1200 × 630 (Social)</option>
+                    <option value="1500,500">1500 × 500 (Twitter)</option>
+                    <option value="1280,720">1280 × 720 (HD)</option>
+                    <option value="1440,900">1440 × 900 (16:10)</option>
+                    <option value="2560,1440">2560 × 1440 (1440p)</option>
+                </select>
             </div>
         </div>
 
@@ -412,10 +451,22 @@
             <div class="color-picker-wrapper">
                 <label>Line Color</label>
                 <input type="color" id="lineColor" value="#ffffff">
+                <button class="no-fill-btn" id="lineNoFill" title="No Fill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="4" y1="4" x2="20" y2="20"/>
+                    </svg>
+                </button>
             </div>
             <div class="color-picker-wrapper">
                 <label>Background</label>
                 <input type="color" id="bgColor" value="#0a0a0a">
+                <button class="no-fill-btn" id="bgNoFill" title="No Fill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="4" y1="4" x2="20" y2="20"/>
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -492,18 +543,20 @@
         const fontDropZone = document.getElementById('fontDropZone');
         const fontFileInput = document.getElementById('fontFileInput');
         const imageFitSelect = document.getElementById('imageFit');
-        const canvasSizeSlider = document.getElementById('canvasSize');
+        const canvasPresetSelect = document.getElementById('canvasPreset');
 
         let currentImage = null;
         let originalImageWidth = 0;
         let originalImageHeight = 0;
-        let currentWidth = 800;
-        let currentHeight = 600;
+        let currentWidth = 1920;
+        let currentHeight = 1080;
         let svgString = '';
         let previewAnimId = null;
         let customFont = null;
         let currentFontFamily = "'Space Grotesque', sans-serif";
         let defaultCanvas = null;
+        let lineNoFill = false;
+        let bgNoFill = false;
 
         dropZone.addEventListener('click', () => fileInput.click());
 
@@ -535,8 +588,28 @@
         [columnsSlider, rowsSlider, gapSlider, maxThicknessSlider, contrastSlider, quantizeSlider, lineColorPicker, bgColorPicker].forEach(control => {
             control.addEventListener('input', () => {
                 updateValueDisplays();
+                if (control === lineColorPicker) {
+                    lineNoFill = false;
+                    document.getElementById('lineNoFill').classList.remove('active');
+                }
+                if (control === bgColorPicker) {
+                    bgNoFill = false;
+                    document.getElementById('bgNoFill').classList.remove('active');
+                }
                 if (currentImage || textInput.value.trim()) renderLines();
             });
+        });
+
+        document.getElementById('lineNoFill').addEventListener('click', function() {
+            lineNoFill = !lineNoFill;
+            this.classList.toggle('active');
+            if (currentImage || textInput.value.trim()) renderLines();
+        });
+
+        document.getElementById('bgNoFill').addEventListener('click', function() {
+            bgNoFill = !bgNoFill;
+            this.classList.toggle('active');
+            if (currentImage || textInput.value.trim()) renderLines();
         });
 
         animDurationSlider.addEventListener('input', updateValueDisplays);
@@ -568,22 +641,18 @@
         imageFitSelect.addEventListener('change', () => {
             if (currentImage) {
                 updateCanvasDimensions();
-            } else {
-                currentWidth = parseInt(canvasSizeSlider.value);
-                currentHeight = Math.round(currentWidth * 0.75);
             }
             if (currentImage || textInput.value.trim()) {
                 renderLines();
             }
         });
 
-        canvasSizeSlider.addEventListener('input', () => {
-            updateValueDisplays();
+        canvasPresetSelect.addEventListener('change', () => {
+            const [w, h] = canvasPresetSelect.value.split(',').map(Number);
+            currentWidth = w;
+            currentHeight = h;
             if (currentImage) {
                 updateCanvasDimensions();
-            } else {
-                currentWidth = parseInt(canvasSizeSlider.value);
-                currentHeight = Math.round(currentWidth * 0.75);
             }
             if (currentImage || textInput.value.trim()) {
                 renderLines();
@@ -647,16 +716,15 @@
             document.getElementById('textColorValue').textContent = textColorPicker.value;
             document.getElementById('textXValue').textContent = textXSlider.value + '%';
             document.getElementById('textYValue').textContent = textYSlider.value + '%';
-            document.getElementById('canvasSizeValue').textContent = canvasSizeSlider.value + 'px';
         }
 
         function updateCanvasDimensions() {
             const fitMode = imageFitSelect.value;
-            const maxSize = parseInt(canvasSizeSlider.value);
+            const [presetW, presetH] = canvasPresetSelect.value.split(',').map(Number);
             
             if (!currentImage) {
-                currentWidth = maxSize;
-                currentHeight = Math.round(maxSize * 0.75);
+                currentWidth = presetW;
+                currentHeight = presetH;
                 return;
             }
             
@@ -665,16 +733,22 @@
                 currentHeight = originalImageHeight;
             } else if (fitMode === 'cover' || fitMode === 'contain') {
                 const imgAspect = originalImageWidth / originalImageHeight;
-                if (imgAspect >= 1) {
-                    currentWidth = Math.min(maxSize, originalImageWidth);
-                    currentHeight = Math.round(currentWidth / imgAspect);
+                const presetAspect = presetW / presetH;
+                if (fitMode === 'cover') {
+                    currentWidth = presetW;
+                    currentHeight = presetH;
                 } else {
-                    currentHeight = Math.min(maxSize, originalImageHeight);
-                    currentWidth = Math.round(currentHeight * imgAspect);
+                    if (imgAspect > presetAspect) {
+                        currentWidth = presetW;
+                        currentHeight = Math.round(presetW / imgAspect);
+                    } else {
+                        currentHeight = presetH;
+                        currentWidth = Math.round(presetH * imgAspect);
+                    }
                 }
             } else if (fitMode === 'stretch') {
-                currentWidth = maxSize;
-                currentHeight = Math.round(maxSize / (originalImageWidth / originalImageHeight));
+                currentWidth = presetW;
+                currentHeight = presetH;
             }
         }
 
@@ -811,8 +885,10 @@
         }
 
         function drawLinesOnCanvas(ctx, w, h, grid, cellWidth, cellHeight, gap, animatedMaxThickness, lineColor, bgColor) {
-            ctx.fillStyle = bgColor;
-            ctx.fillRect(0, 0, w, h);
+            if (!bgNoFill) {
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, w, h);
+            }
             ctx.strokeStyle = lineColor;
             ctx.lineCap = 'butt';
             for (let r = 0; r < grid.length; r++) {
@@ -863,7 +939,9 @@
             const columns = grid[0].length;
 
             svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${currentWidth} ${currentHeight}" preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">`;
-            svgString += `<rect width="100%" height="100%" fill="${bgColor}"/>`;
+            if (!bgNoFill) {
+                svgString += `<rect width="100%" height="100%" fill="${bgColor}"/>`;
+            }
 
             for (let row = 0; row < rows; row++) {
                 for (let col = 0; col < columns; col++) {
@@ -914,7 +992,7 @@
             canvas.style.width = canvasWidth + 'px';
             canvas.style.height = canvasHeight + 'px';
             outputContainer.innerHTML = '';
-            outputContainer.style.backgroundColor = bgColor;
+            outputContainer.style.backgroundColor = bgNoFill ? 'transparent' : bgColor;
             outputContainer.appendChild(canvas);
             const ctx = canvas.getContext('2d');
             ctx.scale(dpr, dpr);
@@ -954,31 +1032,51 @@
         });
 
         downloadPngBtn.addEventListener('click', () => {
-            const svg = outputContainer.querySelector('svg');
-            if (svg) {
-                const svgData = new XMLSerializer().serializeToString(svg);
-                const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                const url = URL.createObjectURL(svgBlob);
+            const { grid } = computeBrightnessGrid();
+            const columns = parseInt(columnsSlider.value);
+            const rows = parseInt(rowsSlider.value);
+            const gap = parseInt(gapSlider.value);
+            const maxThickness = parseInt(maxThicknessSlider.value);
+            const lineColor = lineColorPicker.value;
+            const bgColor = bgColorPicker.value;
 
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = currentWidth;
-                    canvas.height = currentHeight;
-                    const ctx = canvas.getContext('2d');
-                    ctx.fillStyle = bgColorPicker.value;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(img, 0, 0);
+            const cellW = currentWidth / columns;
+            const cellH = currentHeight / rows;
 
-                    const link = document.createElement('a');
-                    link.download = 'line-visualization.png';
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
+            const canvas = document.createElement('canvas');
+            canvas.width = currentWidth;
+            canvas.height = currentHeight;
+            const ctx = canvas.getContext('2d');
 
-                    URL.revokeObjectURL(url);
-                };
-                img.src = url;
+            if (!bgNoFill) {
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, currentWidth, currentHeight);
             }
+
+            ctx.strokeStyle = lineColor;
+            ctx.lineCap = 'butt';
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < columns; c++) {
+                    const b = grid[r]?.[c];
+                    if (b < 0 || b === undefined) continue;
+                    const thickness = b * maxThickness;
+                    if (thickness <= 0) continue;
+                    const lineHeight = (cellH - gap) * 1.25;
+                    const x = c * cellW + cellW / 2;
+                    const y = r * cellH + gap / 2 - (lineHeight - (cellH - gap)) / 2;
+                    ctx.lineWidth = thickness;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x, y + lineHeight);
+                    ctx.stroke();
+                }
+            }
+
+            const link = document.createElement('a');
+            link.download = 'line-visualization.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
         });
 
         // --- Export WebM ---
