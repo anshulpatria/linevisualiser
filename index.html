@@ -384,6 +384,23 @@
             background: #444;
         }
     </style>
+
+<!-- GoatCounter analytics + timezone capture -->
+<script>
+  window.goatcounter = {
+    path: function (p) {
+      try {
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        var hour = new Date().getHours();
+        return p + '?tz=' + encodeURIComponent(tz) + '&localhour=' + hour;
+      } catch (e) {
+        return p;
+      }
+    }
+  };
+</script>
+<script data-goatcounter="https://apmx30.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
     <div class="sidebar">
